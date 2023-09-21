@@ -28,19 +28,19 @@ ament_target_dependencies(position_plugin
   "tf2_geometry_msgs"
   "tf2_ros"
 )
-ament_export_libraries(position_plugin)
 
+ament_export_libraries(position_plugin)
 ament_export_include_directories(include)
 
-# install(
-#   TARGETS position_plugin
-#   DESTINATION lib/${PROJECT_NAME}
-# )
+install(
+  TARGETS position_plugin
+  DESTINATION lib/${PROJECT_NAME}
+)
 
-# install(
-#   DIRECTORY include/
-#   DESTINATION include
-# )
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
