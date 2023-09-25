@@ -25,41 +25,40 @@ namespace gazebo_plugins
 class PositionGazeboPluginPrivate
 {
 public:
-  /// Callback to be called at every simulation iteration
-  /// \param[in] info Updated simulation info
+  // Callback to be called at every simulation iteration
   void OnUpdate(const gazebo::common::UpdateInfo & info);
 
-  /// The link being traked.
+  // The link being traked.
   gazebo::physics::LinkPtr link_{nullptr};
 
-  /// The body of the frame to display pose, twist
+  // The body of the frame to display pose, twist
   gazebo::physics::LinkPtr reference_link_{nullptr};
 
-  /// Pointer to ros node
+  // Pointer to ros node
   gazebo_ros::Node::SharedPtr ros_node_{nullptr};
 
-  /// Odometry publisher
+  // Odometry publisher
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_{nullptr};
 
-  /// Odom topic name
+  // Odom topic name
   std::string topic_name_{"odom"};
 
-  /// Frame transform name, should match name of reference link, or be world.
+  // Frame transform name, should match name of reference link, or be world.
   std::string frame_name_{"world"};
 
-  /// Constant xyz and rpy offsets
+  // Constant xyz and rpy offsets
   ignition::math::Pose3d offset_;
 
-  /// Keep track of the last update time.
+  // Keep track of the last update time.
   gazebo::common::Time last_time_;
 
-  /// Publish rate in Hz.
+  // Publish rate in Hz.
   double update_rate_{0.0};
 
-  /// Gaussian noise
+  // Gaussian noise
   double gaussian_noise_;
 
-  /// Pointer to the update event connection
+  // Pointer to the update event connection
   gazebo::event::ConnectionPtr update_connection_{nullptr};
 };
 
@@ -83,8 +82,7 @@ void PositionGazeboPlugin::Load(gazebo::physics::ModelPtr model, sdf::ElementPtr
 
   if (!sdf->HasElement("update_rate")) {
     RCLCPP_DEBUG(
-      impl_->ros_node_->get_logger(), "p3d plugin missing <update_rate>, defaults to 0.0"
-      " (as fast as possible)");
+      impl_->ros_node_->get_logger(), "p3d plugin missing <update_rate>, defaults to 0.0 (as fast as possible)");
   } else {
     impl_->update_rate_ = sdf->GetElement("update_rate")->Get<double>();
   }
@@ -99,18 +97,15 @@ void PositionGazeboPlugin::Load(gazebo::physics::ModelPtr model, sdf::ElementPtr
 
   impl_->link_ = model->GetLink(link_name);
   if (!impl_->link_) {
-    RCLCPP_ERROR(
-      impl_->ros_node_->get_logger(), "body_name: %s does not exist\n",
-      link_name.c_str());
+    RCLCPP_ERROR(impl_->ros_node_->get_logger(), "body_name: %s does not exist\n",link_name.c_str());
     return;
   }
 
   impl_->pub_ = impl_->ros_node_->create_publisher<nav_msgs::msg::Odometry>(
-    impl_->topic_name_, qos.get_publisher_qos(
-      impl_->topic_name_, rclcpp::SensorDataQoS().reliable()));
+    impl_->topic_name_, qos.get_publisher_qos(impl_->topic_name_, rclcpp::SensorDataQoS().reliable()));
   impl_->topic_name_ = impl_->pub_->get_topic_name();
-  RCLCPP_DEBUG(
-    impl_->ros_node_->get_logger(), "Publishing on topic [%s]", impl_->topic_name_.c_str());
+  
+  RCLCPP_DEBUG(impl_->ros_node_->get_logger(), "Publishing on topic [%s]", impl_->topic_name_.c_str());
 
   if (!sdf->HasElement("xyz_offset")) {
     RCLCPP_DEBUG(impl_->ros_node_->get_logger(), "Missing <xyz_offset>, defaults to 0s");
@@ -121,8 +116,7 @@ void PositionGazeboPlugin::Load(gazebo::physics::ModelPtr model, sdf::ElementPtr
   if (!sdf->HasElement("rpy_offset")) {
     RCLCPP_DEBUG(impl_->ros_node_->get_logger(), "Missing <rpy_offset>, defaults to 0s");
   } else {
-    impl_->offset_.Rot() = ignition::math::Quaterniond(
-      sdf->GetElement("rpy_offset")->Get<ignition::math::Vector3d>());
+    impl_->offset_.Rot() = ignition::math::Quaterniond(sdf->GetElement("rpy_offset")->Get<ignition::math::Vector3d>());
   }
 
   if (!sdf->HasElement("gaussian_noise")) {
@@ -135,8 +129,7 @@ void PositionGazeboPlugin::Load(gazebo::physics::ModelPtr model, sdf::ElementPtr
   impl_->last_time_ = model->GetWorld()->SimTime();
 
   if (!sdf->HasElement("frame_name")) {
-    RCLCPP_DEBUG(
-      impl_->ros_node_->get_logger(), "Missing <frame_name>, defaults to world");
+    RCLCPP_DEBUG(impl_->ros_node_->get_logger(), "Missing <frame_name>, defaults to world");
   } else {
     impl_->frame_name_ = sdf->GetElement("frame_name")->Get<std::string>();
   }
@@ -148,9 +141,7 @@ void PositionGazeboPlugin::Load(gazebo::physics::ModelPtr model, sdf::ElementPtr
   {
     impl_->reference_link_ = model->GetLink(impl_->frame_name_);
     if (!impl_->reference_link_) {
-      RCLCPP_WARN(
-        impl_->ros_node_->get_logger(), "<frame_name> [%s] does not exist.",
-        impl_->frame_name_.c_str());
+      RCLCPP_WARN(impl_->ros_node_->get_logger(), "<frame_name> [%s] does not exist.",impl_->frame_name_.c_str());
     }
   }
 
@@ -176,8 +167,7 @@ void PositionGazeboPluginPrivate::OnUpdate(const gazebo::common::UpdateInfo & in
   }
 
   // Rate control
-  if (update_rate_ > 0 &&
-    (current_time - last_time_).Double() < (1.0 / update_rate_))
+  if (update_rate_ > 0 && (current_time - last_time_).Double() < (1.0 / update_rate_))
   {
     return;
   }
@@ -244,7 +234,6 @@ void PositionGazeboPluginPrivate::OnUpdate(const gazebo::common::UpdateInfo & in
   pose_msg.twist.twist.angular.z = veul.Z() + ignition::math::Rand::DblNormal(0, gaussian_noise_);
 
   // Fill in covariance matrix
-  /// @TODO: let user set separate linear and angular covariance values
   double gn2 = gaussian_noise_ * gaussian_noise_;
   pose_msg.pose.covariance[0] = gn2;
   pose_msg.pose.covariance[7] = gn2;
@@ -258,6 +247,7 @@ void PositionGazeboPluginPrivate::OnUpdate(const gazebo::common::UpdateInfo & in
   pose_msg.twist.covariance[21] = gn2;
   pose_msg.twist.covariance[28] = gn2;
   pose_msg.twist.covariance[35] = gn2;
+
 #ifdef IGN_PROFILER_ENABLE
   IGN_PROFILE_END();
   IGN_PROFILE_BEGIN("publish");

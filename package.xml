@@ -3,7 +3,7 @@
 <package format="3">
   <name>position_gazebo_plugin</name>
   <version>0.0.0</version>
-  <description>position plugin for gazebo environment</description>
+  <description>give the position of a base link in gazebo environment</description>
   <maintainer email="corra981@gmail.com">giacomo</maintainer>
   <license>TODO: License declaration</license>
 
