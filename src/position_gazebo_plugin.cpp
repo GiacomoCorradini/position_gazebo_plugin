@@ -5,7 +5,6 @@
 #include <gazebo_ros/conversions/builtin_interfaces.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
-
 #include <position_gazebo_plugin.hpp>
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -38,10 +37,10 @@ public:
   gazebo_ros::Node::SharedPtr ros_node_{nullptr};
 
   // Odometry publisher
-  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_{nullptr};
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_{nullptr};
 
   // Odom topic name
-  std::string topic_name_{"odom"};
+  std::string topic_name_{"/Drone/pose"};
 
   // Frame transform name, should match name of reference link, or be world.
   std::string frame_name_{"world"};
@@ -101,7 +100,7 @@ void PositionGazeboPlugin::Load(gazebo::physics::ModelPtr model, sdf::ElementPtr
     return;
   }
 
-  impl_->pub_ = impl_->ros_node_->create_publisher<nav_msgs::msg::Odometry>(
+  impl_->pub_ = impl_->ros_node_->create_publisher<geometry_msgs::msg::PoseStamped>(
     impl_->topic_name_, qos.get_publisher_qos(impl_->topic_name_, rclcpp::SensorDataQoS().reliable()));
   impl_->topic_name_ = impl_->pub_->get_topic_name();
   
@@ -185,12 +184,11 @@ void PositionGazeboPluginPrivate::OnUpdate(const gazebo::common::UpdateInfo & in
 #ifdef IGN_PROFILER_ENABLE
   IGN_PROFILE_BEGIN("fill ROS message");
 #endif
-  nav_msgs::msg::Odometry pose_msg;
+	geometry_msgs::msg::PoseStamped drone_pose;
 
   // Copy data into pose message
-  pose_msg.header.frame_id = frame_name_;
-  pose_msg.header.stamp = gazebo_ros::Convert<builtin_interfaces::msg::Time>(current_time);
-  pose_msg.child_frame_id = link_->GetName();
+  drone_pose.header.frame_id = frame_name_;
+  drone_pose.header.stamp = gazebo_ros::Convert<builtin_interfaces::msg::Time>(current_time);
 
   // Get inertial rates
   ignition::math::Vector3d vpos = link_->WorldLinearVel();
@@ -222,38 +220,16 @@ void PositionGazeboPluginPrivate::OnUpdate(const gazebo::common::UpdateInfo & in
   pose.Rot() = offset_.Rot() * pose.Rot();
   pose.Rot().Normalize();
 
-  // Fill out messages
-  pose_msg.pose.pose.position = gazebo_ros::Convert<geometry_msgs::msg::Point>(pose.Pos());
-  pose_msg.pose.pose.orientation = gazebo_ros::Convert<geometry_msgs::msg::Quaternion>(pose.Rot());
-
-  pose_msg.twist.twist.linear.x = vpos.X() + ignition::math::Rand::DblNormal(0, gaussian_noise_);
-  pose_msg.twist.twist.linear.y = vpos.Y() + ignition::math::Rand::DblNormal(0, gaussian_noise_);
-  pose_msg.twist.twist.linear.z = vpos.Z() + ignition::math::Rand::DblNormal(0, gaussian_noise_);
-  pose_msg.twist.twist.angular.x = veul.X() + ignition::math::Rand::DblNormal(0, gaussian_noise_);
-  pose_msg.twist.twist.angular.y = veul.Y() + ignition::math::Rand::DblNormal(0, gaussian_noise_);
-  pose_msg.twist.twist.angular.z = veul.Z() + ignition::math::Rand::DblNormal(0, gaussian_noise_);
-
-  // Fill in covariance matrix
-  double gn2 = gaussian_noise_ * gaussian_noise_;
-  pose_msg.pose.covariance[0] = gn2;
-  pose_msg.pose.covariance[7] = gn2;
-  pose_msg.pose.covariance[14] = gn2;
-  pose_msg.pose.covariance[21] = gn2;
-  pose_msg.pose.covariance[28] = gn2;
-  pose_msg.pose.covariance[35] = gn2;
-  pose_msg.twist.covariance[0] = gn2;
-  pose_msg.twist.covariance[7] = gn2;
-  pose_msg.twist.covariance[14] = gn2;
-  pose_msg.twist.covariance[21] = gn2;
-  pose_msg.twist.covariance[28] = gn2;
-  pose_msg.twist.covariance[35] = gn2;
+  // Fill out drone_pose
+  drone_pose.pose.position = gazebo_ros::Convert<geometry_msgs::msg::Point>(pose.Pos());
+  drone_pose.pose.orientation = gazebo_ros::Convert<geometry_msgs::msg::Quaternion>(pose.Rot());
 
 #ifdef IGN_PROFILER_ENABLE
   IGN_PROFILE_END();
   IGN_PROFILE_BEGIN("publish");
 #endif
   // Publish to ROS
-  pub_->publish(pose_msg);
+  pub_->publish(drone_pose);
 #ifdef IGN_PROFILER_ENABLE
   IGN_PROFILE_END();
 #endif
